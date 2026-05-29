@@ -656,6 +656,75 @@ describe("ai provider", () => {
     expect(create.mock.calls[1]?.[0]?.messages?.[1]?.content).toContain("上一次输出不是合法 JSON");
   });
 
+  it("parses stringified chat completion responses for item summaries", async () => {
+    const create = vi.fn().mockResolvedValue(JSON.stringify({
+      choices: [{
+        message: {
+          content: "这是从字符串化响应里解析出的中文摘要。",
+        },
+      }],
+    }));
+    const provider = createAiProvider(
+      {
+        apiKey: "sk-test",
+        baseURL: "https://example.com/v1",
+        model: "test-model",
+      },
+      undefined,
+      { chat: { completions: { create } } },
+    );
+
+    await expect(provider.summarizeItem("Body text", {
+      title: "Original title",
+      sourceName: "Example Feed",
+    })).resolves.toBe("这是从字符串化响应里解析出的中文摘要。");
+  });
+
+  it("parses stringified chat completion responses for enrichment", async () => {
+    const create = vi.fn().mockResolvedValue(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            translatedTitle: "中文标题",
+            moderationStatus: "allowed",
+            moderationReason: null,
+            moderationDetail: "内容正常",
+            qualityScore: 91,
+            qualityRationale: "结构完整",
+            eventType: "launch",
+            eventSubject: "OpenAI",
+            eventAction: "发布",
+            eventObject: "新产品",
+            eventDate: "2026-05-29",
+          }),
+        },
+        finish_reason: "stop",
+      }],
+    }));
+    const provider = createAiProvider(
+      {
+        apiKey: "sk-test",
+        baseURL: "https://example.com/v1",
+        model: "test-model",
+      },
+      undefined,
+      { chat: { completions: { create } } },
+    );
+
+    await expect(provider.enrichContent("Body text", {
+      title: "Original title",
+      sourceName: "Example Feed",
+      translateTitle: true,
+    })).resolves.toMatchObject({
+      translatedTitle: "中文标题",
+      qualityScore: 91,
+      eventSignature: {
+        eventType: "launch",
+        eventSubject: "OpenAI",
+      },
+    });
+  });
+
   it("uses the cluster summary prompt for aggregated summaries", async () => {
     const presentation = {
       title: "OpenAI 发布 Agent 工具",

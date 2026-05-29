@@ -231,7 +231,7 @@ type CompletionResponse = {
 type OpenAICompatibleClient = {
   chat: {
     completions: {
-      create: (payload: Record<string, unknown>) => Promise<CompletionResponse>;
+      create: (payload: Record<string, unknown>) => Promise<unknown>;
     };
   };
 };
@@ -1296,6 +1296,23 @@ function resolvePromptConfig(
   };
 }
 
+function normalizeCompletionResponse(rawResponse: unknown): CompletionResponse | null {
+  if (rawResponse && typeof rawResponse === "object") {
+    return rawResponse as CompletionResponse;
+  }
+
+  if (typeof rawResponse !== "string") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawResponse) as unknown;
+    return parsed && typeof parsed === "object" ? parsed as CompletionResponse : null;
+  } catch {
+    return null;
+  }
+}
+
 async function completeText(
   client: OpenAICompatibleClient,
   config: RuntimeConfig["modelApi"],
@@ -1331,10 +1348,11 @@ async function completeText(
     request.thinking = { type: "disabled" };
   }
 
-  const response = await client.chat.completions.create(request) as CompletionResponse;
-  const rawText = response.choices?.[0]?.message?.content?.trim() ?? "";
+  const rawResponse = await client.chat.completions.create(request);
+  const response = normalizeCompletionResponse(rawResponse);
+  const rawText = response?.choices?.[0]?.message?.content?.trim() ?? "";
   const usage = normalizeCompletionUsage(
-    response.usage,
+    response?.usage,
     messages,
     rawText,
     config,
@@ -1342,7 +1360,7 @@ async function completeText(
   );
   options?.onUsage?.(usage);
 
-  const choice = response.choices?.[0];
+  const choice = response?.choices?.[0];
   const message = choice?.message;
   const content = message?.content?.trim();
   const reasoningContent = message?.reasoning_content?.trim();
