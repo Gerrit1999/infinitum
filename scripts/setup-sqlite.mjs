@@ -779,18 +779,31 @@ function applyEntityItemBackfill() {
   });
 }
 
+function applyPreSchemaColumnUpgrades() {
+  addColumnIfMissing("items", "isAggregation", "BOOLEAN NOT NULL DEFAULT false");
+  addColumnIfMissing("items", "aggregationCheckedAt", "DATETIME");
+  addColumnIfMissing("items", "aggregationParseStatus", "TEXT");
+  addColumnIfMissing("items", "parentItemId", "TEXT");
+  addColumnIfMissing("items", "processingAttemptCount", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing("items", "nextProcessingRetryAt", "DATETIME");
+  addColumnIfMissing("items", "lastProcessingError", "TEXT");
+  addColumnIfMissing("items", "publishedAtKnown", "BOOLEAN NOT NULL DEFAULT true");
+  addColumnIfMissing("sources", "aggregationDetectionEnabled", "BOOLEAN NOT NULL DEFAULT false");
+  addColumnIfMissing("task_schedules", "sourceConcurrency", "INTEGER NOT NULL DEFAULT 2");
+  addColumnIfMissing("task_schedules", "fullTextFetchThreshold", "INTEGER NOT NULL DEFAULT 80");
+  addColumnIfMissing("task_schedules", "aggregationSplitMaxEvents", "INTEGER NOT NULL DEFAULT 20");
+  addColumnIfMissing("daily_reports", "candidateSnapshot", "TEXT");
+}
+
 function applyAdditiveSchemaUpgrades() {
-  // Repair///bootstrap item processing recovery columns before any items rebuilds.
+  // Repair/bootstrap item processing recovery columns before any items rebuilds.
   runSqlite([dbPath], {
     input: `
       DROP INDEX IF EXISTS "items_nextProcessingRetryAt_status_moderationStatus_idx";
       DROP INDEX IF EXISTS "items_aggregationParseStatus_nextProcessingRetryAt_idx";
     `,
   });
-  addColumnIfMissing("items", "processingAttemptCount", "INTEGER NOT NULL DEFAULT 0");
-  addColumnIfMissing("items", "nextProcessingRetryAt", "DATETIME");
-  addColumnIfMissing("items", "lastProcessingError", "TEXT");
-  addColumnIfMissing("items", "publishedAtKnown", "BOOLEAN NOT NULL DEFAULT true");
+  applyPreSchemaColumnUpgrades();
 
   dropColumnIfPresent("items", "dedupeSignature", {
     dropIndexes: ["items_dedupeSignature_key", "items_dedupeSignature_idx"],
@@ -835,7 +848,6 @@ function applyAdditiveSchemaUpgrades() {
     });
   }
   dropColumnIfPresent("task_schedules", "dailyReportGroupIdsJson");
-
   if (!ftsTableExists("entities")) {
     runSqlite([dbPath], {
       input: `
@@ -1126,6 +1138,8 @@ try {
     addColumnIfMissing("items", "nextProcessingRetryAt", "DATETIME");
     addColumnIfMissing("items", "lastProcessingError", "TEXT");
   }
+
+  applyPreSchemaColumnUpgrades();
 
   const sql = `${sqliteRuntimePragmas}\n${makeSqliteSchemaIdempotent(loadSchemaSql())}\n${sqliteRuntimePragmas}\n`;
   runSqlite([dbPath], {
