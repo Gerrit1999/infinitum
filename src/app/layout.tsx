@@ -16,13 +16,14 @@ import {
 
 import "./globals.css";
 
-const brandFont = localFont({
-  src: "./fonts/LXGWWenKaiMono.ttf",
-  weight: "400",
+const sourceHanSans = localFont({
+  src: "./fonts/SourceHanSansSC-VF.otf.woff2",
+  weight: "200 900",
   style: "normal",
   display: "swap",
-  fallback: ["system-ui", "sans-serif"],
-  variable: "--font-brand",
+  preload: false,
+  fallback: ["PingFang SC", "Microsoft YaHei", "sans-serif"],
+  variable: "--font-source-han-sans",
 });
 
 export const metadata: Metadata = {
@@ -78,7 +79,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className={brandFont.variable} lang="zh-CN">
+    <html className={sourceHanSans.variable} lang="zh-CN">
       <body>
         <AntdRegistry>
           <ToastProvider>{children}</ToastProvider>
